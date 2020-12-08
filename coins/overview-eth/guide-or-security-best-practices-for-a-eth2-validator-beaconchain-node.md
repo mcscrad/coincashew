@@ -451,15 +451,25 @@ Confirm the settings are in effect.
 >      To                         Action      From
 >      --                         ------      ----
 > [ 1] 22/tcp                     ALLOW IN    Anywhere
+> # SSH
 > [ 2] 3000/tcp                   ALLOW IN    Anywhere
+> # Grafana
 > [ 3] 9000/tcp                   ALLOW IN    Anywhere
+> # eth2 p2p traffic
 > [ 4] 9090/tcp                   ALLOW IN    Anywhere
+> # Prometheus
 > [ 5] 30303/tcp                  ALLOW IN    Anywhere
+> # eth1 node
 > [ 6] 22/tcp (v6)                ALLOW IN    Anywhere (v6)
+> # SSH
 > [ 7] 3000/tcp (v6)              ALLOW IN    Anywhere (v6)
+> # Grafana
 > [ 8] 9000/tcp (v6)              ALLOW IN    Anywhere (v6)
+> # eth2 p2p traffic
 > [ 9] 9090/tcp (v6)              ALLOW IN    Anywhere (v6)
+> # Prometheus
 > [10] 30303/tcp (v6)             ALLOW IN    Anywhere (v6)
+> # eth1 node
 > ```
 
 **\[ Optional but recommended \]** Whitelisting \(or permitting connections from a specific IP\) can be setup via the following command.
@@ -527,6 +537,15 @@ sudo netstat -tulpn
       <td style="text-align:left">In case of power outage, you want your validator machine to restart as
         soon as power is available. In the BIOS settings, change the <b>Restore on AC / Power Loss</b> or <b>After Power Loss</b> setting
         to always on. Better yet, install an Uninterruptable Power Supply (UPS).</td>
+    </tr>
+    <tr>
+      <td style="text-align:left">Clear the bash history</td>
+      <td style="text-align:left">
+        <p>When pressing the up-arrow key, you can see prior commands which may contain
+          sensitive data. To clear this, run the following:</p>
+        <p><code>shred -u ~/.bash_history &amp;&amp; touch ~/.bash_history</code>
+        </p>
+      </td>
     </tr>
   </tbody>
 </table>

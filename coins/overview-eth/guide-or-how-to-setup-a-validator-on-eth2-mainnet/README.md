@@ -7,7 +7,7 @@ description: >-
 # Guide \| How to setup a validator on ETH2 mainnet
 
 {% hint style="success" %}
-As of Dec 6 2020, this guide is updated for **mainnet.** 😁 
+As of Dec 8 2020, this guide is updated for **mainnet.** 😁 
 {% endhint %}
 
 #### ✨ For the testnet guide, [please click here](../guide-or-how-to-setup-a-validator-on-eth2-testnet.md).
@@ -139,10 +139,16 @@ wget https://github.com/ethereum/eth2.0-deposit-cli/releases/download/v1.1.0/eth
 Verify the SHA256 Checksum matches the checksum on the [releases page](https://github.com/ethereum/eth2.0-deposit-cli/releases/tag/v1.0.0).
 
 ```bash
-sha256sum eth2deposit-cli-ed5a6d3-linux-amd64.tar.gz
-# SHA256 should be
-# 2107f26f954545f423530e3501ae616c222b6bf77774a4f2743effb8fe4bcbe7
+echo "2107f26f954545f423530e3501ae616c222b6bf77774a4f2743effb8fe4bcbe7 *eth2deposit-cli-ed5a6d3-linux-amd64.tar.gz" | shasum -a 256 --check
 ```
+
+Example valid output:
+
+> eth2deposit-cli-ed5a6d3-linux-amd64.tar.gz: OK
+
+{% hint style="danger" %}
+Only proceed if the sha256 check passes with **OK**!
+{% endhint %}
 
 Extract the archive.
 
@@ -179,7 +185,11 @@ You can copy via USB key the pre-built eth2deposit-cli binaries from an online m
 {% endtab %}
 {% endtabs %}
 
-2. Follow the prompts and pick a password. Write down your mnemonic and keep this safe and **offline**.
+2. Follow the prompts and pick a **KEYSTORE password**. This password encrypts your keystore files. Write down your mnemonic and keep this safe and **offline**.
+
+{% hint style="warning" %}
+\*\*\*\*🚧 **Caution**: Only deposit the 32 ETH per validator if you are confident your ETH1 node and ETH2 validator will be fully synched and ready to perform validator duties. You can return later to launchpad with your deposit-data to finish the next steps.
+{% endhint %}
 
 3. Follow the steps at [https://launchpad.ethereum.org/](https://launchpad.ethereum.org/) while skipping over the steps you already just completed. Study the eth2 phase 0 overview material. Understanding eth2 is the key to success!
 
@@ -406,7 +416,7 @@ Simply copy/paste the following.
 ```bash
 cat > $HOME/eth1.service << EOF 
 [Unit]
-Description     = openethereum eth1 service
+Description     = besu eth1 service
 Wants           = network-online.target
 After           = network-online.target 
 
@@ -463,7 +473,8 @@ Review the latest release at [https://github.com/NethermindEth/nethermind/releas
 Automatically download the latest linux release, un-zip and cleanup.
 
 ```bash
-mkdir $HOME/nethermind 
+mkdir $HOME/nethermind
+chmod 775 $HOME/nethermind
 cd $HOME/nethermind
 curl -s https://api.github.com/repos/NethermindEth/nethermind/releases/latest | jq -r ".assets[] | select(.name) | .browser_download_url" | grep linux  | xargs wget -q --show-progress
 unzip -o nethermind*.zip
@@ -479,7 +490,7 @@ Simply copy/paste the following.
 ```bash
 cat > $HOME/eth1.service << EOF 
 [Unit]
-Description     = openethereum eth1 service
+Description     = nethermind eth1 service
 Wants           = network-online.target
 After           = network-online.target 
 
@@ -515,6 +526,10 @@ sudo systemctl enable eth1
 ```text
 sudo systemctl start eth1
 ```
+
+{% hint style="info" %}
+**Note about Metric Error messages**: You will see these until prometheus pushergateway is setup in section 6. `Error in MetricPusher: System.Net.Http.HttpRequestException: Connection refused`
+{% endhint %}
 {% endtab %}
 
 {% tab title="Minimum Hardware Setup \(Infura\)" %}
@@ -679,7 +694,7 @@ When you import your keys into Lighthouse, your validator signing key\(s\) are s
 
 Run the following command to import your validator keys from the eth2deposit-cli tool directory.
 
-Enter your keystore's password to import accounts.
+Enter your **keystore password** to import accounts.
 
 ```bash
 lighthouse account validator import --network mainnet --directory=$HOME/eth2deposit-cli/validator_keys
@@ -785,6 +800,28 @@ Nice work. Your beacon chain is now managed by the reliability and robustness of
 
 ### 🛠 Some helpful systemd commands
 
+#### 🗄 Viewing and filtering logs
+
+```bash
+#view and follow the log
+journalctl --unit=beacon-chain -f
+```
+
+```bash
+#view log since yesterday
+journalctl --unit=beacon-chain --since=yesterday
+```
+
+```bash
+#view log since today
+journalctl --unit=beacon-chain --since=today
+```
+
+```bash
+#view log between a date
+journalctl --unit=beacon-chain --since='2020-12-01 00:00:00' --until='2020-12-02 12:00:00'
+```
+
 #### ✅ Check whether the beacon chain is active
 
 ```text
@@ -807,19 +844,6 @@ sudo systemctl reload-or-restart beacon-chain
 
 ```text
 sudo systemctl stop beacon-chain
-```
-
-#### 🗄 Viewing and filtering logs
-
-```bash
-#view and follow the log
-journalctl --unit=beacon-chain -f
-#view log since yesterday
-journalctl --unit=beacon-chain --since=yesterday
-#view log since today
-journalctl --unit=beacon-chain --since=today
-#view log between a date
-journalctl --unit=beacon-chain --since='2020-12-01 00:00:00' --until='2020-12-02 12:00:00'
 ```
 
 ## 🧬 4.6. Start the validator
@@ -897,6 +921,28 @@ Nice work. Your validator is now managed by the reliability and robustness of sy
 
 ### 🛠 Some helpful systemd commands
 
+#### 🗄 Viewing and filtering logs
+
+```bash
+#view and follow the log
+journalctl --unit=validator -f
+```
+
+```bash
+#view log since yesterday
+journalctl --unit=validator --since=yesterday
+```
+
+```bash
+#view log since today
+journalctl --unit=validator --since=today
+```
+
+```bash
+#view log between a date
+journalctl --unit=validator --since='2020-12-01 00:00:00' --until='2020-12-02 12:00:00'
+```
+
 #### ✅ Check whether the validator is active
 
 ```text
@@ -919,19 +965,6 @@ sudo systemctl reload-or-restart validator
 
 ```text
 sudo systemctl stop validator
-```
-
-#### 🗄 Viewing and filtering logs
-
-```bash
-#view and follow the log
-journalctl --unit=validator -f
-#view log since yesterday
-journalctl --unit=validator --since=yesterday
-#view log since today
-journalctl --unit=validator --since=today
-#view log between a date
-journalctl --unit=validator --since='2020-12-01 00:00:00' --until='2020-12-02 12:00:00'
 ```
 {% endtab %}
 
@@ -993,7 +1026,7 @@ sudo chmod 700 /var/lib/nimbus
 
 The following command will import your validator keys.
 
-Enter your keystore's password to import accounts.
+Enter your **keystore password** to import accounts.
 
 ```bash
 cd $HOME/git/nimbus-eth2
@@ -1118,6 +1151,28 @@ Nice work. Your beacon chain is now managed by the reliability and robustness of
 
 ### 🛠 Some helpful systemd commands
 
+#### 🗄 Viewing and filtering logs
+
+```bash
+#view and follow the log
+journalctl --unit=beacon-chain -f
+```
+
+```bash
+#view log since yesterday
+journalctl --unit=beacon-chain --since=yesterday
+```
+
+```bash
+#view log since today
+journalctl --unit=beacon-chain --since=today
+```
+
+```bash
+#view log between a date
+journalctl --unit=beacon-chain --since='2020-12-01 00:00:00' --until='2020-12-02 12:00:00'
+```
+
 #### ✅ Check whether the beacon chain is active
 
 ```text
@@ -1140,19 +1195,6 @@ sudo systemctl reload-or-restart beacon-chain
 
 ```text
 sudo systemctl stop beacon-chain
-```
-
-#### 🗄 Viewing and filtering logs
-
-```bash
-#view and follow the log
-journalctl --unit=beacon-chain -f
-#view log since yesterday
-journalctl --unit=beacon-chain --since=yesterday
-#view log since today
-journalctl --unit=beacon-chain --since=today
-#view log between a date
-journalctl --unit=beacon-chain --since='2020-12-01 00:00:00' --until='2020-12-02 12:00:00'
 ```
 {% endtab %}
 
@@ -1255,13 +1297,14 @@ rm /var/lib/teku/validator_keys/deposit_data*
 **WARNING**: DO NOT USE THE ORIGINAL KEYSTORES TO VALIDATE WITH ANOTHER CLIENT, OR YOU WILL GET SLASHED.
 {% endhint %}
 
-Store your validator's password in a file. 
+Store your **keystore password** in a file and make it read-only. This is required so that Teku can decrypt and load your validators.
 
-Update your password between the quotation marks after `echo`.
+Update your **keystore password** between the quotation marks after `echo`.
 
 ```bash
 echo 'my_password_goes_here' > $HOME/validators-password.txt
 sudo mv $HOME/validators-password.txt /etc/teku/validators-password.txt
+sudo chmod 600 /etc/teku/validators-password.txt
 ```
 
 #### 🚀 Setup Graffiti and POAP
@@ -1404,6 +1447,28 @@ Nice work. Your beacon chain is now managed by the reliability and robustness of
 
 ### 🛠 Some helpful systemd commands
 
+#### 🗄 Viewing and filtering logs
+
+```bash
+#view and follow the log
+journalctl --unit=beacon-chain -f
+```
+
+```bash
+#view log since yesterday
+journalctl --unit=beacon-chain --since=yesterday
+```
+
+```bash
+#view log since today
+journalctl --unit=beacon-chain --since=today
+```
+
+```bash
+#view log between a date
+journalctl --unit=beacon-chain --since='2020-12-01 00:00:00' --until='2020-12-02 12:00:00'
+```
+
 #### ✅ Check whether the beacon chain is active
 
 ```text
@@ -1426,19 +1491,6 @@ sudo systemctl reload-or-restart beacon-chain
 
 ```text
 sudo systemctl stop beacon-chain
-```
-
-#### 🗄 Viewing and filtering logs
-
-```bash
-#view and follow the log
-journalctl --unit=beacon-chain -f
-#view log since yesterday
-journalctl --unit=beacon-chain --since=yesterday
-#view log since today
-journalctl --unit=beacon-chain --since=today
-#view log between a date
-journalctl --unit=beacon-chain --since='2020-12-01 00:00:00' --until='2020-12-02 12:00:00'
 ```
 {% endtab %}
 
@@ -1467,7 +1519,7 @@ Specific to your networking setup or cloud provider settings, [ensure your valid
 
 ## 🎩 4.3. Import validator key
 
-Accept terms of use, accept default wallet location, enter a new password to encrypt your wallet and enter the password for your imported accounts.
+Accept terms of use, accept default wallet location, enter a new prysm-only password to encrypt your local prysm wallet files and enter the **keystore password** for your imported accounts.
 
 ```bash
 $HOME/prysm/prysm.sh validator accounts import --mainnet --keys-dir=$HOME/eth2deposit-cli/validator_keys
@@ -1551,6 +1603,28 @@ Nice work. Your beacon chain is now managed by the reliability and robustness of
 
 ### 🛠 Some helpful systemd commands
 
+#### 🗄 Viewing and filtering logs
+
+```bash
+#view and follow the log
+journalctl --unit=beacon-chain -f
+```
+
+```bash
+#view log since yesterday
+journalctl --unit=beacon-chain --since=yesterday
+```
+
+```bash
+#view log since today
+journalctl --unit=beacon-chain --since=today
+```
+
+```bash
+#view log between a date
+journalctl --unit=beacon-chain --since='2020-12-01 00:00:00' --until='2020-12-02 12:00:00'
+```
+
 #### ✅ Check whether the beacon chain is active
 
 ```text
@@ -1575,22 +1649,9 @@ sudo systemctl reload-or-restart beacon-chain
 sudo systemctl stop beacon-chain
 ```
 
-#### 🗒 Viewing and filtering logs
-
-```bash
-#view and follow the log
-journalctl --unit=beacon-chain -f
-#view log since yesterday
-journalctl --unit=beacon-chain --since=yesterday
-#view log since today
-journalctl --unit=beacon-chain --since=today
-#view log between a date
-journalctl --unit=beacon-chain --since='2020-12-01 00:00:00' --until='2020-12-02 12:00:00'
-```
-
 ## 🧬 4.5. Start the validator <a id="9-start-the-validator"></a>
 
-Store your validator's password in a file and make it read-only.
+Store your **keystore password** in a file and make it read-only. This is required so that Prysm can decrypt and load your validators.
 
 ```bash
 echo 'my_password_goes_here' > $HOME/.eth2validators/validators-password.txt
@@ -1668,6 +1729,28 @@ sudo systemctl start validator
 
 ### 🛠 Some helpful systemd commands
 
+#### 🗄 Viewing and filtering logs
+
+```bash
+#view and follow the log
+journalctl --unit=validator -f
+```
+
+```bash
+#view log since yesterday
+journalctl --unit=validator --since=yesterday
+```
+
+```bash
+#view log since today
+journalctl --unit=validator --since=today
+```
+
+```bash
+#view log between a date
+journalctl --unit=validator --since='2020-12-01 00:00:00' --until='2020-12-02 12:00:00'
+```
+
 #### ✅ Check whether the validator is active
 
 ```text
@@ -1690,19 +1773,6 @@ sudo systemctl reload-or-restart validator
 
 ```text
 sudo systemctl stop validator
-```
-
-#### 🗄 Viewing and filtering logs
-
-```bash
-#view and follow the log
-journalctl --unit=validator -f
-#view log since yesterday
-journalctl --unit=validator --since=yesterday
-#view log since today
-journalctl --unit=validator --since=today
-#view log between a date
-journalctl --unit=validator --since='2020-12-01 00:00:00' --until='2020-12-02 12:00:00'
 ```
 
 Verify that your **validator public key** appears in the logs.
@@ -1801,7 +1871,7 @@ yarn run cli account validator import \
   --directory $HOME/eth2deposit-cli/validator_keys
 ```
 
-Enter your keystore's password to import accounts. 
+Enter your **keystore password** to import accounts. 
 
 Confirm your keys were imported properly.
 
@@ -1874,6 +1944,28 @@ Nice work. Your beacon chain is now managed by the reliability and robustness of
 
 ### 🛠 Some helpful systemd commands
 
+#### 🗄 Viewing and filtering logs
+
+```bash
+#view and follow the log
+journalctl --unit=beacon-chain -f
+```
+
+```bash
+#view log since yesterday
+journalctl --unit=beacon-chain --since=yesterday
+```
+
+```bash
+#view log since today
+journalctl --unit=beacon-chain --since=today
+```
+
+```bash
+#view log between a date
+journalctl --unit=beacon-chain --since='2020-12-01 00:00:00' --until='2020-12-02 12:00:00'
+```
+
 #### ✅ Check whether the beacon chain is active
 
 ```text
@@ -1896,19 +1988,6 @@ sudo systemctl reload-or-restart beacon-chain
 
 ```text
 sudo systemctl stop beacon-chain
-```
-
-#### 🗄 Viewing and filtering logs
-
-```bash
-#view and follow the log
-journalctl --unit=beacon-chain -f
-#view log since yesterday
-journalctl --unit=beacon-chain --since=yesterday
-#view log since today
-journalctl --unit=beacon-chain --since=today
-#view log between a date
-journalctl --unit=beacon-chain --since='2020-12-01 00:00:00' --until='2020-12-02 12:00:00'
 ```
 
 ## 🧬 4.5. Start the validator
@@ -1989,6 +2068,28 @@ Nice work. Your validator is now managed by the reliability and robustness of sy
 
 ### 🛠 Some helpful systemd commands
 
+#### 🗄 Viewing and filtering logs
+
+```bash
+#view and follow the log
+journalctl --unit=validator -f
+```
+
+```bash
+#view log since yesterday
+journalctl --unit=validator --since=yesterday
+```
+
+```bash
+#view log since today
+journalctl --unit=validator --since=today
+```
+
+```bash
+#view log between a date
+journalctl --unit=validator --since='2020-12-01 00:00:00' --until='2020-12-02 12:00:00'
+```
+
 #### ✅ Check whether the validator is active
 
 ```text
@@ -2012,19 +2113,6 @@ sudo systemctl reload-or-restart validator
 ```text
 sudo systemctl stop validator
 ```
-
-#### 🗄 Viewing and filtering logs
-
-```bash
-#view and follow the log
-journalctl --unit=validator -f
-#view log since yesterday
-journalctl --unit=validator --since=yesterday
-#view log since today
-journalctl --unit=validator --since=today
-#view log between a date
-journalctl --unit=validator --since='2020-12-01 00:00:00' --until='2020-12-02 12:00:00'
-```
 {% endtab %}
 {% endtabs %}
 
@@ -2034,12 +2122,6 @@ journalctl --unit=validator --since='2020-12-01 00:00:00' --until='2020-12-02 12
 **Beacon chain client** - Responsible for managing the state of the beacon chain, validator shuffling, and more.
 
 Remember, Teku and Nimbus combines both clients into one process.
-{% endhint %}
-
-{% hint style="success" %}
-Congratulations. Once your beacon chain is sync'd, validator up and running, you just wait for activation. This process can take 24+ hours. Only 900 new validators can join per day. When you're assigned, your validator will begin creating and voting on blocks while earning staking rewards.
-
-Use [https://beaconcha.in/](https://beaconcha.in/) to create alerts and track your validator's performance.
 {% endhint %}
 
 ## 🕒5. Time Synchronization
@@ -2179,18 +2261,18 @@ global:
 # A scrape configuration containing exactly one endpoint to scrape:
 # Here it's Prometheus itself.
 scrape_configs:
-  - job_name: 'node_exporter'
-    static_configs:
-      - targets: ['localhost:9100']
-  - job_name: 'validator'
-    static_configs:
-      - targets: ['localhost:8081']
-  - job_name: 'beacon node'
-    static_configs:
-      - targets: ['localhost:8080']
-  - job_name: 'slasher'
-    static_configs:
-      - targets: ['localhost:8082']
+   - job_name: 'node_exporter'
+     static_configs:
+       - targets: ['localhost:9100']
+   - job_name: 'validator'
+     static_configs:
+       - targets: ['localhost:8081']
+   - job_name: 'beacon node'
+     static_configs:
+       - targets: ['localhost:8080']
+   - job_name: 'slasher'
+     static_configs:
+       - targets: ['localhost:8082']
 EOF
 ```
 {% endtab %}
@@ -2219,6 +2301,10 @@ nano $HOME/prometheus.yml
 
 Append the applicable job snippet for your eth1 node to the end of **prometheus.yml**. Save the file.
 
+{% hint style="warning" %}
+**Spacing matters**. Ensure all `job_name` snippets are in alignment.
+{% endhint %}
+
 {% tabs %}
 {% tab title="Geth" %}
 ```bash
@@ -2234,25 +2320,25 @@ Append the applicable job snippet for your eth1 node to the end of **prometheus.
 
 {% tab title="Besu" %}
 ```bash
-  - job_name: 'besu'
-    scrape_interval: 15s
-    scrape_timeout: 10s
-    metrics_path: /metrics
-    scheme: http
-    static_configs:
-    - targets:
-      - localhost:9545
+   - job_name: 'besu'
+     scrape_interval: 15s
+     scrape_timeout: 10s
+     metrics_path: /metrics
+     scheme: http
+     static_configs:
+     - targets:
+       - localhost:9545
 ```
 {% endtab %}
 
 {% tab title="Nethermind" %}
 ```bash
    - job_name: 'nethermind'
-    scrape_interval: 15s
-    scrape_timeout: 10s
-    honor_labels: true
-    static_configs:
-    - targets: ['localhost:9091']
+     scrape_interval: 15s
+     scrape_timeout: 10s
+     honor_labels: true
+     static_configs:
+       - targets: ['localhost:9091']
 ```
 
 Nethermind monitoring requires [Prometheus Pushgateway](https://github.com/prometheus/pushgateway). Install with the following command.
@@ -2277,6 +2363,12 @@ Move it to `/etc/prometheus/prometheus.yml`
 
 ```bash
 sudo mv $HOME/prometheus.yml /etc/prometheus/prometheus.yml
+```
+
+Update file permissions.
+
+```bash
+sudo chmod 644 /etc/prometheus/prometheus.yml
 ```
 
 Finally, restart the services.
@@ -2475,6 +2567,16 @@ For a video demo, watch [MohamedMansour's eth2 education videos](https://www.you
 18. Select desired notifications.
 19. Click **TEST** to verify your notifications are setup correctly.
 20. Click **CREATE** to finish.
+
+{% hint style="success" %}
+Once your beacon chain is sync'd, validator up and running, you just wait for activation. This process can take 24+ hours. Only 900 new validators can join per day. When you're assigned, your validator will begin creating and voting on blocks while earning staking rewards.
+
+Use [https://beaconcha.in/](https://beaconcha.in/) to create alerts and track your validator's performance.
+{% endhint %}
+
+{% hint style="info" %}
+Be sure to review the [Checklist \| How to confirm a healthy functional ETH2 validator.](checklist-or-how-to-confirm-a-healthy-functional-eth2-validator.md)
+{% endhint %}
 
 {% hint style="success" %}
 🎉Congrats on setting up your validator! You're good to go on eth2.0.
@@ -2706,25 +2808,75 @@ When the **pubkey** in both **keystore files** are **identical,** this means you
 
 ### 🤖8.3 Add additional validators
 
-Using the eth2deposit-cli tool, you can add more validators by creating a new deposit data file and `validator_keys`
-
-First, backup and move your existing `validator_key` directory and append the date to the end.
+Backup and move your existing `validator_key` directory and append the date to the end.
 
 ```bash
+# Adjust your eth2deposit-cli directory accordingly
 cd $HOME/eth2deposit-cli
+# Renames and append the date to the existing validator_key directory
 mv validator_key validator_key_$(date +"%Y%d%m-%H%M%S")
+# Optional: you can also delete this folder since it can be regenerated.
 ```
 
-For example, in case we originally created 3 validators but now wish to add 5 more validators, we could use the following command.
+{% hint style="info" %}
+Using the eth2deposit-cli tool, you can add more validators by creating a new deposit data file and `validator_keys`
+{% endhint %}
 
+2. For example, in case we originally created **3 validators** but now wish to **add 5 more validators**, we could use the following command. Select the tab depending on how you acquired [**eth2deposit tool**](https://github.com/ethereum/eth2.0-deposit-cli).
+
+{% hint style="warning" %}
+**Security recommendation reminder**: For best security practices, key management and other activities where you type your 24 word mnemonic seed should be completed on an air-gapped offline cold machine booted from USB drive.
+{% endhint %}
+
+{% tabs %}
+{% tab title="Build from source code" %}
 ```bash
-cd $HOME/eth2deposit-cli
+# Generate from an existing mnemonic 5 more validators when 3 were previously already made
 ./deposit.sh existing-mnemonic --validator_start_index 3 --num_validators 5 --chain mainnet
 ```
+{% endtab %}
 
-Complete the steps of uploading the `deposit_data-#########.json` to the launch pad site and making your corresponding 32 ETH deposit transactions.
+{% tab title="Pre-built eth2deposit-cli binaries" %}
+```bash
+# Generate from an existing mnemonic 5 more validators when 3 were previously already made
+./deposit existing-mnemonic --validator_start_index 3 --num_validators 5 --chain mainnet
+```
+{% endtab %}
 
-Finish by stopping your validator, importing the new validator key\(s\), restarting your validator and verifying the logs ensuring everything still works without error.
+{% tab title="Advanced - Most Secure" %}
+{% hint style="warning" %}
+🔥**Pro Security Tip**: Run the **eth2deposit-cli tool** and generate your **mnemonic seed** for your validator keys on an **air-gapped offline machine booted from usb**.
+{% endhint %}
+
+Follow this [ethstaker.cc](https://ethstaker.cc/) exclusive for the low down on making a bootable usb.
+
+### Part 1 - Create a Ubuntu 20.04 USB Bootable Drive
+
+{% embed url="https://www.youtube.com/watch?v=DTR3PzRRtYU" %}
+
+### Part 2 - Install Ubuntu 20.04 from the USB Drive
+
+{% embed url="https://www.youtube.com/watch?v=C97\_6MrufCE" %}
+
+You can copy via USB key the pre-built eth2deposit-cli binaries from an online machine to an air-gapped offline machine booted from usb. Make sure to disconnect the ethernet cable and/or WIFI.
+
+Run the existing-mnemonic command in the previous tabs.
+{% endtab %}
+{% endtabs %}
+
+3. Complete the steps of uploading the `deposit_data-#########.json` to the [official Eth2 launch pad site](https://launchpad.ethereum.org/) and making your corresponding 32 ETH deposit transactions.
+
+4. Finish by stopping your validator, importing the new validator key\(s\), restarting your validator and verifying the logs ensuring everything still works without error. [Review steps 2 and onward of the main guide if you need a refresher.](./#2-signup-to-be-a-validator-at-the-launchpad)
+
+5. Finally, verify your **existing** validator's attestations are working with public block explorer such as
+
+[https://beaconcha.in/](https://beaconcha.in/) or [https://beaconscan.com/](https://beaconscan.com/)
+
+Enter your validator's pubkey to view its status.
+
+{% hint style="info" %}
+Your additional validators are now in the activation queue waiting their turn. Check your estimated activation time at [https://eth2-validator-queue.web.app/](https://eth2-validator-queue.web.app/)
+{% endhint %}
 
 ### 💸 8.4 Switch / migrate Eth2 clients with slash protection
 
@@ -2876,17 +3028,23 @@ During installation of Ubuntu Server, a common issue arises where your hard driv
 
 ```bash
 # View your disk drives
-df
+sudo -s lvm
 
 # Change the logical volume filesystem path if required
 lvextend -l +100%FREE /dev/ubuntu-vg/ubuntu-lv
 
+#exit lvextend
 exit
+
 # Resize file system to use the new available space in the logical volume
 resize2fs /dev/ubuntu-vg/ubuntu-lv
 
 ## Verify new available space
 df -h
+
+# Example output of a 2TB drive where 25% is used
+# Filesystem                         Size   Used Avail Use% Mounted on
+# /dev/ubuntu-vg/ubuntu-lv           2000G  500G  1500G  25% /
 ```
 
 **Source reference**:
@@ -2934,9 +3092,9 @@ Add the following flag to limit the number of peers on the `ExecStart` line.
 
 {% tab title="Nethermind" %}
 ```bash
---ActivePeersMaxCount 10
+--Network.ActivePeersMaxCount 10
 # Example
-# ExecStart       = <home directory>/nethermind/Nethermind.Runner --ActivePeersMaxCount 10 --JsonRpc.Enabled true
+# ExecStart       = <home directory>/nethermind/Nethermind.Runner --Network.ActivePeersMaxCount 10 --JsonRpc.Enabled true
 ```
 {% endtab %}
 {% endtabs %}
