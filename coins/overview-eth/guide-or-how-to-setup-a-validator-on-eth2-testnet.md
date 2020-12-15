@@ -7,7 +7,7 @@ description: >-
 # Guide \| How to setup a validator on ETH2 testnet
 
 {% hint style="success" %}
-As of Dec 8 2020, this guide is updated for **testnet Pyrmont.** 😁
+As of Dec 14 2020, this guide is updated for **testnet Pyrmont.** 😁
 {% endhint %}
 
 #### ✨ For the mainnet guide, [please click here](guide-or-how-to-setup-a-validator-on-eth2-mainnet/).
@@ -1429,6 +1429,10 @@ Specific to your networking setup or cloud provider settings, [ensure your valid
 
 Accept terms of use, accept default wallet location, enter a new prysm-only password to encrypt your local prysm wallet and enter the **keystore password** for your imported accounts.
 
+{% hint style="info" %}
+If you wish, you can use the same password for the **keystore** and **prysm**.
+{% endhint %}
+
 ```bash
 $HOME/prysm/prysm.sh validator accounts import --pyrmont --keys-dir=$HOME/eth2deposit-cli/validator_keys
 ```
@@ -1550,7 +1554,7 @@ journalctl --unit=beacon-chain --since='2020-12-01 00:00:00' --until='2020-12-02
 
 ## 🧬 4.5. Start the validator <a id="9-start-the-validator"></a>
 
-Store your **keystore password** in a file and make it read-only. This is required so that Prysm can decrypt and load your validators.
+Store your **prysm password** in a file and make it read-only. This is required so that Prysm can decrypt and load your validators.
 
 ```bash
 echo 'my_password_goes_here' > $HOME/.eth2validators/validators-password.txt
@@ -3365,14 +3369,14 @@ Stop your eth2 beacon chain, validator, and eth1 node processes.
 {% tabs %}
 {% tab title="Lighthouse \| Prysm \| Lodestar" %}
 ```bash
-# This can take some time.
+# This can take a few minutes.
 sudo systemctl stop validator beacon-chain eth1
 ```
 {% endtab %}
 
 {% tab title="Nimbus \| Teku" %}
 ```bash
-# This can take some time.
+# This can take a few minutes.
 sudo systemctl stop beacon-chain eth1
 ```
 {% endtab %}
@@ -3496,6 +3500,68 @@ Finally, verify your validator's attestations are working with public block expl
 [https://beaconcha.in/](https://beaconcha.in/)
 
 Enter your validator's pubkey to view its status.
+
+### ✨ 8.11 How to improve validator attestation effectiveness
+
+#### Strategy \#1: Increase eth2 beacon chain peer count
+
+{% hint style="info" %}
+This change will result in increased bandwidth and memory usage. Tweak and tailor appropriately for your hardware. 
+
+_Kudos to_ [_Rémy Roy_](https://www.reddit.com/user/remyroy/) _for this strat._
+{% endhint %}
+
+Edit your `beacon-chain.service` unit file \(except for Teku\).
+
+```bash
+sudo nano /etc/systemd/system/beacon-chain.service
+```
+
+Add the following flag to increase peers on the `ExecStart` line. 
+
+{% tabs %}
+{% tab title="Lighthouse" %}
+```bash
+--target-peers 100
+# Example
+# lighthouse bn --target-peers 100 --staking --metrics --network pyrmont
+```
+{% endtab %}
+
+{% tab title="Nimbus" %}
+```bash
+--max-peers=100
+# Example
+# /usr/bin/nimbus_beacon_node --network=pyrmont --max-peers=100
+```
+{% endtab %}
+
+{% tab title="Teku" %}
+```bash
+# Edit teku.yaml
+sudo nano /etc/teku/teku.yaml
+
+# add the following line to teku.yaml and save the file
+p2p-peer-upper-bound: 100
+```
+{% endtab %}
+
+{% tab title="Prysm" %}
+```bash
+--p2p-max-peers=100
+# Example
+# prysm.sh beacon-chain --pyrmont --p2p-max-peers=100 --http-web3provider=http://127.0.0.1:8545 --accept-terms-of-use 
+```
+{% endtab %}
+
+{% tab title="Lodestar" %}
+```bash
+--network.maxPeers 100
+# Example
+# yarn run cli beacon --network.maxPeers 100 --network pyrmont
+```
+{% endtab %}
+{% endtabs %}
 
 ## 🌇 9. Join the community on Discord and Reddit
 
