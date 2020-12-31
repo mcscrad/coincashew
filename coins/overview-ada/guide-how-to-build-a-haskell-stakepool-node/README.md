@@ -14,7 +14,7 @@ Thank you for your support and kind messages! It really energizes us to keep cre
 {% endhint %}
 
 {% hint style="success" %}
-As of Dec 9 2020, this guide is written for **mainnet** with **release v.1.24.2** 😁 
+As of Dec 28 2020, this is **guide version 3.0.0** and written for **cardano mainnet** with **release v.1.24.2** 😁 
 {% endhint %}
 
 ## 🏁 0. Prerequisites
@@ -42,7 +42,7 @@ As a stake pool operator for Cardano, you will be competent with the following a
 
 * **Two separate servers:** 1 for block producer node, 1 for relay node
 * **One air-gapped offline machine \(cold environment\)**
-* **Operating system:** 64-bit Linux \(i.e. Ubuntu 20.04 LTS\)
+* **Operating system:** 64-bit Linux \(i.e. Ubuntu Server 20.04 LTS\)
 * **Processor:** An Intel or AMD x86 processor with two or more cores, at 1.6GHz or faster \(2GHz or faster for a stake pool or relay\)
 * **Memory:** 4GB of RAM \(8GB for a relay or stake pool\)
 * **Storage:** 10GB of free storage \(20GB for a stake pool\)
@@ -72,7 +72,11 @@ If you need ideas on how to harden your stake pool's nodes, refer to
 
 ### 🛠 Setup Ubuntu
 
-For instructions on installing **Ubuntu**, refer to the following:
+If you need to install **Ubuntu Server**, refer to
+
+{% embed url="https://ubuntu.com/tutorials/install-ubuntu-server\#1-overview" %}
+
+For instructions on installing **Ubuntu Desktop**, refer to the following:
 
 {% page-ref page="../../overview-xtz/guide-how-to-setup-a-baker/install-ubuntu.md" %}
 
@@ -82,14 +86,20 @@ If you are rebuilding or reusing an existing `cardano-node` installation, refer 
 
 ## 🏭 1. Install Cabal and GHC
 
-**Press** Ctrl+Alt+T. This will launch a terminal window. 
+If using Ubuntu Desktop, **press** Ctrl+Alt+T. This will launch a terminal window. 
 
 First, update packages and install Ubuntu dependencies.
 
 ```bash
 sudo apt-get update -y
+```
+
+```text
 sudo apt-get upgrade -y
-sudo apt-get install git jq bc make tmux rsync htop curl build-essential pkg-config libffi-dev libgmp-dev libssl-dev libtinfo-dev libsystemd-dev zlib1g-dev make g++ wget libncursesw5 libtool autoconf -y
+```
+
+```text
+sudo apt-get install git jq bc make rsync htop curl build-essential pkg-config libffi-dev libgmp-dev libssl-dev libtinfo-dev libsystemd-dev zlib1g-dev make g++ wget libncursesw5 libtool autoconf -y
 ```
 
 Install Libsodium.
@@ -191,6 +201,9 @@ Copy **cardano-cli** and **cardano-node** files into bin directory.
 
 ```bash
 sudo cp $(find $HOME/git/cardano-node/dist-newstyle/build -type f -name "cardano-cli") /usr/local/bin/cardano-cli
+```
+
+```bash
 sudo cp $(find $HOME/git/cardano-node/dist-newstyle/build -type f -name "cardano-node") /usr/local/bin/cardano-node
 ```
 
@@ -353,7 +366,7 @@ The startup script contains all the variables needed to run a cardano-node such 
 ```bash
 cat > $NODE_HOME/startBlockProducingNode.sh << EOF 
 #!/bin/bash
-DIRECTORY=\$NODE_HOME
+DIRECTORY=$NODE_HOME
 PORT=6000
 HOSTADDR=0.0.0.0
 TOPOLOGY=\${DIRECTORY}/${NODE_CONFIG}-topology.json
@@ -369,7 +382,7 @@ EOF
 ```bash
 cat > $NODE_HOME/startRelayNode1.sh << EOF 
 #!/bin/bash
-DIRECTORY=\$NODE_HOME
+DIRECTORY=$NODE_HOME
 PORT=6000
 HOSTADDR=0.0.0.0
 TOPOLOGY=\${DIRECTORY}/${NODE_CONFIG}-topology.json
@@ -382,33 +395,200 @@ EOF
 {% endtab %}
 {% endtabs %}
 
-## ✅ 8. Start the nodes
-
-**Press** Ctrl+Alt+T. This will launch a terminal window.
-
-Add execute permissions to the script, start your stake pool, and begin syncing the blockchain!
+Add execute permissions to the startup script.
 
 {% tabs %}
 {% tab title="block producer node" %}
 ```bash
-cd $NODE_HOME
-chmod +x startBlockProducingNode.sh
-./startBlockProducingNode.sh
+chmod +x $NODE_HOME/startBlockProducingNode.sh
 ```
 {% endtab %}
 
 {% tab title="relaynode1" %}
 ```bash
-cd $NODE_HOME
-chmod +x startRelayNode1.sh
-./startRelayNode1.sh
+chmod +x $NODE_HOME/startRelayNode1.sh 
 ```
 {% endtab %}
 {% endtabs %}
 
+Run the following to create a **systemd unit file** to define your`cardano-node.service` configuration.
+
 {% hint style="info" %}
-\*\*\*\*🛑 **To stop your node**,  run the command `killall -s 2 cardano-node`
+#### 🍰 Benefits of using systemd for your stake pool
+
+1. Auto-start your stake pool when the computer reboots due to maintenance, power outage, etc.
+2. Automatically restart crashed stake pool processes.
+3. Maximize your stake pool up-time and performance.
 {% endhint %}
+
+{% tabs %}
+{% tab title="block producer node" %}
+```bash
+cat > $NODE_HOME/cardano-node.service << EOF 
+# The Cardano node service (part of systemd)
+# file: /etc/systemd/system/cardano-node.service 
+
+[Unit]
+Description     = Cardano node service
+Wants           = network-online.target
+After           = network-online.target 
+
+[Service]
+User            = ${USER}
+Type            = simple
+WorkingDirectory= ${NODE_HOME}
+ExecStart       = /bin/bash -c '${NODE_HOME}/startBlockProducingNode.sh'
+KillSignal=SIGINT
+RestartKillSignal=SIGINT
+TimeoutStopSec=2
+LimitNOFILE=32768
+Restart=always
+RestartSec=5
+
+[Install]
+WantedBy	= multi-user.target
+EOF
+```
+{% endtab %}
+
+{% tab title="relaynode1" %}
+```bash
+cat > $NODE_HOME/cardano-node.service << EOF 
+# The Cardano node service (part of systemd)
+# file: /etc/systemd/system/cardano-node.service 
+
+[Unit]
+Description     = Cardano node service
+Wants           = network-online.target
+After           = network-online.target 
+
+[Service]
+User            = ${USER}
+Type            = simple
+WorkingDirectory= ${NODE_HOME}
+ExecStart       = /bin/bash -c '${NODE_HOME}/startRelayNode1.sh'
+KillSignal=SIGINT
+RestartKillSignal=SIGINT
+TimeoutStopSec=2
+LimitNOFILE=32768
+Restart=always
+RestartSec=5
+
+[Install]
+WantedBy	= multi-user.target
+EOF
+```
+{% endtab %}
+{% endtabs %}
+
+Move the unit file to `/etc/systemd/system` and give it permissions.
+
+```bash
+sudo mv $NODE_HOME/cardano-node.service /etc/systemd/system/cardano-node.service
+```
+
+```bash
+sudo chmod 644 /etc/systemd/system/cardano-node.service
+```
+
+Run the following to enable auto-starting of your stake pool at boot time.
+
+```text
+sudo systemctl daemon-reload
+sudo systemctl enable cardano-node
+```
+
+{% hint style="success" %}
+Your stake pool is now managed by the reliability and robustness of systemd. Below are some commands for using systemd.
+{% endhint %}
+
+#### 🔎 View the status of the node service
+
+```text
+sudo systemctl status cardano-node
+```
+
+#### 🔄 Restarting the node service
+
+```text
+sudo systemctl reload-or-restart cardano-node
+```
+
+#### 🛑 Stopping the node service
+
+```text
+sudo systemctl stop cardano-node
+```
+
+#### 🗄 Viewing and filter logs
+
+```bash
+journalctl --unit=cardano-node --follow
+```
+
+```bash
+journalctl --unit=cardano-node --since=yesterday
+```
+
+```text
+journalctl --unit=cardano-node --since=today
+```
+
+```text
+journalctl --unit=cardano-node --since='2020-07-29 00:00:00' --until='2020-07-29 12:00:00'
+```
+
+## ✅ 8. Start the nodes
+
+Start your stake pool with systemctl and begin syncing the blockchain!
+
+{% tabs %}
+{% tab title="block producer node" %}
+```bash
+sudo systemctl start cardano-node
+```
+{% endtab %}
+
+{% tab title="relaynode1" %}
+```bash
+sudo systemctl start cardano-node
+```
+{% endtab %}
+{% endtabs %}
+
+Install gLiveView, a monitoring tool.
+
+{% hint style="info" %}
+gLiveView displays crucial node status information and works well with systemd services. Credits to the [Guild Operators](https://cardano-community.github.io/guild-operators/#/Scripts/gliveview) for creating this tool.
+{% endhint %}
+
+```bash
+cd $NODE_HOME
+sudo apt install bc tcptraceroute -y
+curl -s -o gLiveView.sh https://raw.githubusercontent.com/cardano-community/guild-operators/master/scripts/cnode-helper-scripts/gLiveView.sh
+curl -s -o env https://raw.githubusercontent.com/cardano-community/guild-operators/master/scripts/cnode-helper-scripts/env
+chmod 755 gLiveView.sh
+```
+
+Run the following to modify **env** with the updated file locations.
+
+```bash
+sed -i env \
+    -e "s/\#CONFIG=\"\${CNODE_HOME}\/files\/config.json\"/CONFIG=\"\${NODE_HOME}\/mainnet-config.json\"/g" \
+    -e "s/\#SOCKET=\"\${CNODE_HOME}\/sockets\/node0.socket\"/SOCKET=\"\${NODE_HOME}\/db\/socket\"/g"
+```
+
+Run gLiveView to monitor the progress of the sync'ing of the blockchain.
+
+```text
+./gLiveView.sh
+```
+
+Sample output of gLiveView.
+
+![Guild Live View](../../../.gitbook/assets/gliveview-core.png)
+
+For more information, refer to the [official Guild Live View docs.](https://cardano-community.github.io/guild-operators/#/Scripts/gliveview)
 
 {% hint style="info" %}
 \*\*\*\*✨ **Pro tip**: If you synchronize a node's database, you can copy the database directory over to your other node directly and save time.
@@ -552,22 +732,18 @@ cardano-cli node key-gen-VRF \
 {% endtab %}
 {% endtabs %}
 
-{% hint style="info" %}
-Starting with version 1.23.0, `vrf.skey` permission checking has been implemented and a node will only start if the owner is set to read-only permission.
-{% endhint %}
-
 Update vrf key permissions to read-only.
 
 ```text
 chmod 400 vrf.skey
 ```
 
-Open a new terminal window with Ctrl+Alt+T and stop your ****stake pool by running the following:
+Stop your ****stake pool by running the following:
 
 {% tabs %}
 {% tab title="block producer node" %}
 ```bash
-killall -s 2 cardano-node
+sudo systemctl stop cardano-node
 ```
 {% endtab %}
 {% endtabs %}
@@ -578,7 +754,7 @@ Update your startup script with the new **KES, VRF and Operation Certificate.**
 {% tab title="block producer node" %}
 ```bash
 cat > $NODE_HOME/startBlockProducingNode.sh << EOF 
-DIRECTORY=\$NODE_HOME
+DIRECTORY=$NODE_HOME
 PORT=6000
 HOSTADDR=0.0.0.0
 TOPOLOGY=\${DIRECTORY}/${NODE_CONFIG}-topology.json
@@ -603,8 +779,10 @@ Now start your block producer node.
 {% tabs %}
 {% tab title="block producer node" %}
 ```bash
-cd $NODE_HOME
-./startBlockProducingNode.sh
+sudo systemctl start cardano-node
+
+# Monitor with gLiveView
+./gLiveView.sh
 ```
 {% endtab %}
 {% endtabs %}
@@ -624,6 +802,7 @@ Wait for the block-producing node to start syncing before continuing if you get 
 ```bash
 cardano-cli query protocol-parameters \
     --mainnet \
+    --allegra-era \
     --out-file params.json
 ```
 {% endtab %}
@@ -899,50 +1078,13 @@ Next step is to fund your payment address.
 
 Copy **payment.addr** to your **hot environment**.
 
-{% tabs %}
-{% tab title="Mainnet" %}
-Payment address can be funded from
-
-* your Daedalus / Yoroi wallet
-* if you were part of the ITN, you can convert your keys.
+Payment address can be funded from your Daedalus / Yoroi wallet.
 
 Run the following to find your payment address.
 
 ```bash
 cat payment.addr
 ```
-{% endtab %}
-
-{% tab title="Release Candidate" %}
-Payment address can be funded from
-
-* [Public testnet faucet](https://testnets.cardano.org/en/shelley/tools/faucet/)
-* your Byron mainnet funds based on a snapshot from 07/20 00:00 UTC. 
-* if you were part of the ITN, you can convert your address as specified above. 
-
-Run the following to find your payment address.
-
-```text
-cat payment.addr
-```
-{% endtab %}
-
-{% tab title="Shelley Testnet" %}
-Visit the [faucet ](https://testnets.cardano.org/en/shelley/tools/faucet/)to request funds to your `payment.addr`
-
- Run the following to find your address.
-
-```text
-cat payment.addr
-```
-
-Paste this address and fill out the captcha.
-
-{% hint style="info" %}
-The Shelly Testnet Faucet can deliver up to 100,000 fADA every 24 hours.
-{% endhint %}
-{% endtab %}
-{% endtabs %}
 
 After funding your account, check your payment address balance.
 
@@ -955,6 +1097,7 @@ Before continuing, your nodes must be fully synchronized to the blockchain. Othe
 ```bash
 cardano-cli query utxo \
     --address $(cat payment.addr) \
+    --allegra-era \
     --mainnet
 ```
 {% endtab %}
@@ -982,7 +1125,7 @@ cardano-cli stake-address registration-certificate \
 {% endtab %}
 {% endtabs %}
 
-You need to find the **tip** of the blockchain to set the **ttl** parameter properly.
+You need to find the **tip** of the blockchain to set the **invalid-hereafter** parameter properly.
 
 {% tabs %}
 {% tab title="block producer node" %}
@@ -1000,6 +1143,7 @@ Find your balance and **UTXOs**.
 ```bash
 cardano-cli query utxo \
     --address $(cat payment.addr) \
+    --allegra-era \
     --mainnet > fullUtxo.out
 
 tail -n +3 fullUtxo.out | sort -k3 -nr > balance.out
@@ -1042,7 +1186,7 @@ Registration of a stake address certificate \(keyDeposit\) costs 2000000 lovelac
 Run the build-raw transaction command
 
 {% hint style="info" %}
-The **ttl** value must be greater than the current tip. In this example, we use current slot + 10000.
+The **invalid-hereafter** value must be greater than the current tip. In this example, we use current slot + 10000.
 {% endhint %}
 
 {% tabs %}
@@ -1051,9 +1195,10 @@ The **ttl** value must be greater than the current tip. In this example, we use 
 cardano-cli transaction build-raw \
     ${tx_in} \
     --tx-out $(cat payment.addr)+0 \
-    --ttl $(( ${currentSlot} + 10000)) \
+    --invalid-hereafter $(( ${currentSlot} + 10000)) \
     --fee 0 \
     --out-file tx.tmp \
+    --allegra-era \
     --certificate stake.cert
 ```
 {% endtab %}
@@ -1100,9 +1245,10 @@ Build your transaction which will register your stake address.
 cardano-cli transaction build-raw \
     ${tx_in} \
     --tx-out $(cat payment.addr)+${txOut} \
-    --ttl $(( ${currentSlot} + 10000)) \
+    --invalid-hereafter $(( ${currentSlot} + 10000)) \
     --fee ${fee} \
     --certificate-file stake.cert \
+    --allegra-era \
     --out-file tx.raw
 ```
 {% endtab %}
@@ -1297,7 +1443,7 @@ A stake pool owner's promise to fund their own pool is called **Pledge**.
 * Your pledge is not locked up. You are free to transfer your funds.
 {% endhint %}
 
-You need to find the **tip** of the blockchain to set the **ttl** parameter properly.
+You need to find the **tip** of the blockchain to set the **invalid-hereafter** parameter properly.
 
 {% tabs %}
 {% tab title="block producer node" %}
@@ -1315,6 +1461,7 @@ Find your balance and **UTXOs**.
 ```bash
 cardano-cli query utxo \
     --address $(cat payment.addr) \
+    --allegra-era \
     --mainnet > fullUtxo.out
 
 tail -n +3 fullUtxo.out | sort -k3 -nr > balance.out
@@ -1353,7 +1500,7 @@ echo poolDeposit: $poolDeposit
 Run the build-raw transaction command.
 
 {% hint style="info" %}
-The **ttl** value must be greater than the current tip. In this example, we use current slot + 10000. 
+The **invalid-hereafter** value must be greater than the current tip. In this example, we use current slot + 10000. 
 {% endhint %}
 
 {% tabs %}
@@ -1362,10 +1509,11 @@ The **ttl** value must be greater than the current tip. In this example, we use 
 cardano-cli transaction build-raw \
     ${tx_in} \
     --tx-out $(cat payment.addr)+$(( ${total_balance} - ${poolDeposit}))  \
-    --ttl $(( ${currentSlot} + 10000)) \
+    --invalid-hereafter $(( ${currentSlot} + 10000)) \
     --fee 0 \
     --certificate-file pool.cert \
     --certificate-file deleg.cert \
+    --allegra-era \
     --out-file tx.tmp
 ```
 {% endtab %}
@@ -1412,10 +1560,11 @@ Build the transaction.
 cardano-cli transaction build-raw \
     ${tx_in} \
     --tx-out $(cat payment.addr)+${txOut} \
-    --ttl $(( ${currentSlot} + 10000)) \
+    --invalid-hereafter $(( ${currentSlot} + 10000)) \
     --fee ${fee} \
     --certificate-file pool.cert \
     --certificate-file deleg.cert \
+    --allegra-era \
     --out-file tx.raw
 ```
 {% endtab %}
@@ -1473,7 +1622,7 @@ Now that you have your stake pool ID,  verify it's included in the blockchain.
 {% tabs %}
 {% tab title="block producer node" %}
 ```bash
-cardano-cli query ledger-state --mainnet | grep publicKey | grep $(cat stakepoolid.txt)
+cardano-cli query ledger-state --mainnet --allegra-era | grep publicKey | grep $(cat stakepoolid.txt)
 ```
 {% endtab %}
 {% endtabs %}
@@ -1620,8 +1769,7 @@ The new topology takes after after restarting your stake pool.
 ###
 ### On relaynode1
 ###
-killall -s 2 cardano-node
-./startRelayNode1.sh
+sudo systemctl restart cardano-node
 ```
 
 {% hint style="warning" %}
@@ -1747,8 +1895,7 @@ Stop and then restart your stakepool in order for the new topology settings to t
 ###
 ### On relaynode1
 ###
-killall cardano-node
-./startRelayNode1.sh
+sudo systemctl restart cardano-node
 ```
 
 {% hint style="info" %}
@@ -1758,10 +1905,10 @@ As your REQUESTS are approved, you must re-run the get\_buddies.sh script to pul
 {% endtabs %}
 
 {% hint style="danger" %}
-\*\*\*\*🔥 **Critical step:** In order to be a functional stake pool ready to mint blocks, you must see the **TXs processed** number increasing. If not, review your topology file and ensure your relay buddies are well connected and ideally, minted some blocks.
+\*\*\*\*🔥 **Critical step:** In order to be a functional stake pool ready to mint blocks, you must see the **Processed  TX** number increasing in gLiveView. If not, review your topology file and ensure your **peers** \(or relay buddies\) are well connected and ideally, minted some blocks.
 {% endhint %}
 
-![](../../../.gitbook/assets/ada-tx-processed.png)
+![Processed TX must be positive in gLiveView. Must also have in / out connections.](../../../.gitbook/assets/in-out-connections.png)
 
 {% hint style="danger" %}
 \*\*\*\*🛑 **Critical Key Security Reminde**r: The only stake pool **keys** and **certs** that are required to run a stake pool are those required by the block producer. Namely, the following three files.
@@ -1795,6 +1942,7 @@ After the epoch is over and assuming you successfully minted blocks, check with 
 ```bash
 cardano-cli query stake-address-info \
  --address $(cat stake.addr) \
+ --allegra-era \
  --mainnet
 ```
 {% endtab %}
@@ -1961,17 +2109,13 @@ Stop and restart your stake pool.
 {% tabs %}
 {% tab title="block producer node" %}
 ```bash
-cd $NODE_HOME
-killall -s 2 cardano-node
-./startBlockProducingNode.sh
+sudo systemctl restart cardano-node
 ```
 {% endtab %}
 
 {% tab title="relaynode1" %}
 ```bash
-cd $NODE_HOME
-killall -s 2 cardano-node
-./startRelayNode1.sh
+sudo systemctl restart cardano-node
 ```
 {% endtab %}
 {% endtabs %}
@@ -2145,16 +2289,16 @@ Stop and restart your block producer node to complete this procedure.
 
 {% tabs %}
 {% tab title="block producer node" %}
+```
+sudo systemctl restart cardano-node
+```
+{% endtab %}
+
+{% tab title="manual" %}
 ```bash
 cd $NODE_HOME
 killall -s 2 cardano-node
 ./startBlockProducingNode.sh
-```
-{% endtab %}
-
-{% tab title="block producer node with systemctl" %}
-```
-sudo systemctl reload-or-restart cardano-node
 ```
 {% endtab %}
 {% endtabs %}
@@ -2197,6 +2341,10 @@ rm -rf db
 ```
 
 ### 📝 18.4 Changing the pledge, fee, margin, etc.
+
+{% hint style="danger" %}
+**Important Reminder**🔥 Any changes made in this section take effect in two epochs. A common mistake is lowering the pledge amount and removing funds too soon. This results in zero rewards as the current live pledge amount is no longer met.
+{% endhint %}
 
 {% hint style="info" %}
 Need to change your pledge, fee, margin, pool IP/port, or metadata? Simply resubmit your stake pool registration certificate.
@@ -2277,7 +2425,7 @@ cardano-cli stake-address delegation-certificate \
 
 Copy **deleg.cert** to your **hot environment.**
 
-You need to find the **tip** of the blockchain to set the **ttl** parameter properly.
+You need to find the **tip** of the blockchain to set the **invalid-hereafter** parameter properly.
 
 {% tabs %}
 {% tab title="block producer node" %}
@@ -2295,6 +2443,7 @@ Find your balance and **UTXOs**.
 ```bash
 cardano-cli query utxo \
     --address $(cat payment.addr) \
+    --allegra-era \
     --mainnet > fullUtxo.out
 
 tail -n +3 fullUtxo.out | sort -k3 -nr > balance.out
@@ -2322,7 +2471,7 @@ echo Number of UTXOs: ${txcnt}
 Run the build-raw transaction command.
 
 {% hint style="info" %}
-The **ttl** value must be greater than the current tip. In this example, we use current slot + 10000. 
+The **invalid-hereafter** value must be greater than the current tip. In this example, we use current slot + 10000. 
 {% endhint %}
 
 {% tabs %}
@@ -2331,10 +2480,11 @@ The **ttl** value must be greater than the current tip. In this example, we use 
 cardano-cli transaction build-raw \
     ${tx_in} \
     --tx-out $(cat payment.addr)+${total_balance} \
-    --ttl $(( ${currentSlot} + 10000)) \
+    --invalid-hereafter $(( ${currentSlot} + 10000)) \
     --fee 0 \
     --certificate-file pool.cert \
     --certificate-file deleg.cert \
+    --allegra-era \
     --out-file tx.tmp
 ```
 {% endtab %}
@@ -2377,10 +2527,11 @@ Build the transaction.
 cardano-cli transaction build-raw \
     ${tx_in} \
     --tx-out $(cat payment.addr)+${txOut} \
-    --ttl $(( ${currentSlot} + 10000)) \
+    --invalid-hereafter $(( ${currentSlot} + 10000)) \
     --fee ${fee} \
     --certificate-file pool.cert \
     --certificate-file deleg.cert \
+    --allegra-era \
     --out-file tx.raw
 ```
 {% endtab %}
@@ -2423,7 +2574,7 @@ Changes take effect next epoch. After the next epoch transition, verify that you
 {% tabs %}
 {% tab title="block producer node" %}
 ```bash
-cardano-cli query ledger-state --mainnet --out-file ledger-state.json
+cardano-cli query ledger-state --mainnet --allegra-era --out-file ledger-state.json
 jq -r '.esLState._delegationState._pstate._pParams."'"$(cat stakepoolid.txt)"'"  // empty' ledger-state.json
 ```
 {% endtab %}
@@ -2461,152 +2612,6 @@ rsync -avzhe “ssh -p <SSH-PORT>” <PATH TO LOCAL PC DESTINATION> <USERNAME>@<
 > `ssh myusername@6.1.2.3 -p 12345`
 >
 > `rsync -avzhe "ssh -p 12345" ./node.cert myusername@6.1.2.3:/home/myusername/cardano-my-node/node.cert`
-
-### 🏃♂ 18.6 Auto-starting with systemd services
-
-#### 🍰 Benefits of using systemd for your stake pool
-
-1. Auto-start your stake pool when the computer reboots due to maintenance, power outage, etc.
-2. Automatically restart crashed stake pool processes.
-3. Maximize your stake pool up-time and performance.
-
-#### 🛠 Setup Instructions
-
-Before beginning, ensure your stake pool is stopped.
-
-```bash
-killall -s 2 cardano-node
-```
-
-Run the following to create a **unit file** to define your`cardano-node.service` configuration.
-
-{% tabs %}
-{% tab title="block producer node" %}
-```bash
-cat > $NODE_HOME/cardano-node.service << EOF 
-# The Cardano node service (part of systemd)
-# file: /etc/systemd/system/cardano-node.service 
-
-[Unit]
-Description     = Cardano node service
-Wants           = network-online.target
-After           = network-online.target 
-
-[Service]
-User            = $(whoami)
-Type            = forking
-WorkingDirectory= $NODE_HOME
-ExecStart       = /usr/bin/tmux new -d -s cnode
-ExecStartPost   = /usr/bin/tmux send-keys -t cnode $NODE_HOME/startBlockProducingNode.sh Enter 
-KillSignal=SIGINT
-RestartKillSignal=SIGINT
-TimeoutStopSec=2
-LimitNOFILE=32768
-Restart=always
-RestartSec=5
-
-[Install]
-WantedBy	= multi-user.target
-EOF
-```
-{% endtab %}
-
-{% tab title="relaynode1" %}
-```bash
-cat > $NODE_HOME/cardano-node.service << EOF 
-# The Cardano node service (part of systemd)
-# file: /etc/systemd/system/cardano-node.service 
-
-[Unit]
-Description     = Cardano node service
-Wants           = network-online.target
-After           = network-online.target 
-
-[Service]
-User            = $(whoami)
-Type            = forking
-WorkingDirectory= $NODE_HOME
-ExecStart       = /usr/bin/tmux new -d -s cnode
-ExecStartPost   = /usr/bin/tmux send-keys -t cnode $NODE_HOME/startRelayNode1.sh Enter 
-KillSignal=SIGINT
-RestartKillSignal=SIGINT
-TimeoutStopSec=2
-LimitNOFILE=32768
-Restart=always
-RestartSec=5
-
-[Install]
-WantedBy	= multi-user.target
-EOF
-```
-{% endtab %}
-{% endtabs %}
-
-Copy the unit file to `/etc/systemd/system` and give it permissions.
-
-```bash
-sudo cp $NODE_HOME/cardano-node.service /etc/systemd/system/cardano-node.service
-```
-
-```bash
-sudo chmod 644 /etc/systemd/system/cardano-node.service
-```
-
-Run the following to enable auto-start at boot time and then start your stake pool service.
-
-```text
-sudo systemctl daemon-reload
-sudo systemctl enable cardano-node
-sudo systemctl start cardano-node
-```
-
-{% hint style="success" %}
-Nice work. Your stake pool is now managed by the reliability and robustness of systemd. Below are some commands for using systemd.
-{% endhint %}
-
-\*\*\*\*⛓ **Reattach to the node tmux session after system startup**
-
-```text
-tmux a
-```
-
-#### 🚧 To detach from a **tmux** session and leave the node running in the background
-
-```text
-press Ctrl + b + d
-```
-
-#### ✅ Check whether the node is active
-
-```text
-sudo systemctl is-active cardano-node
-```
-
-#### 🔎 View the status of the node service
-
-```text
-sudo systemctl status cardano-node
-```
-
-#### 🔄 Restarting the node service
-
-```text
-sudo systemctl reload-or-restart cardano-node
-```
-
-#### 🛑 Stopping the node service
-
-```text
-sudo systemctl stop cardano-node
-```
-
-#### 🗄 Filtering logs
-
-```bash
-journalctl --unit=cardano-node --since=yesterday
-journalctl --unit=cardano-node --since=today
-journalctl --unit=cardano-node --since='2020-07-29 00:00:00' --until='2020-07-29 12:00:00'
-```
 
 ### ✅ 18.7 Verify your stake pool ticker with ITN key
 
@@ -2653,7 +2658,6 @@ wget -N https://hydra.iohk.io/build/${NODE_BUILD_NUM}/download/1/${NODE_CONFIG}-
 wget -N https://hydra.iohk.io/build/${NODE_BUILD_NUM}/download/1/${NODE_CONFIG}-shelley-genesis.json
 wget -N https://hydra.iohk.io/build/${NODE_BUILD_NUM}/download/1/${NODE_CONFIG}-config.json
 sed -i ${NODE_CONFIG}-config.json \
-    -e "s/SimpleView/LiveView/g" \
     -e "s/TraceBlockFetchDecisions\": false/TraceBlockFetchDecisions\": true/g"
 ```
 
@@ -2661,7 +2665,7 @@ sed -i ${NODE_CONFIG}-config.json \
 
 Let's walk through an example to send **10 ADA** to **CoinCashew's tip address** 🙃 
 
-First, find the **tip** of the blockchain to set the **ttl** parameter properly.
+First, find the **tip** of the blockchain to set the **invalid-hereafter** parameter properly.
 
 {% tabs %}
 {% tab title="block producer node" %}
@@ -2701,6 +2705,7 @@ Find your balance and **UTXOs**.
 ```bash
 cardano-cli query utxo \
     --address $(cat payment.addr) \
+    --allegra-era \
     --mainnet > fullUtxo.out
 
 tail -n +3 fullUtxo.out | sort -k3 -nr > balance.out
@@ -2734,8 +2739,9 @@ cardano-cli transaction build-raw \
     ${tx_in} \
     --tx-out $(cat payment.addr)+0 \
     --tx-out ${destinationAddress}+0 \
-    --ttl $(( ${currentSlot} + 10000)) \
+    --invalid-hereafter $(( ${currentSlot} + 10000)) \
     --fee 0 \
+    --allegra-era \
     --out-file tx.tmp
 ```
 {% endtab %}
@@ -2779,8 +2785,9 @@ cardano-cli transaction build-raw \
     ${tx_in} \
     --tx-out $(cat payment.addr)+${txOut} \
     --tx-out ${destinationAddress}+${amountToSend} \
-    --ttl $(( ${currentSlot} + 10000)) \
+    --invalid-hereafter $(( ${currentSlot} + 10000)) \
     --fee ${fee} \
+    --allegra-era \
     --out-file tx.raw
 ```
 {% endtab %}
@@ -2823,6 +2830,7 @@ Check if the funds arrived.
 ```bash
 cardano-cli query utxo \
     --address ${destinationAddress} \
+    --allegra-era \
     --mainnet
 ```
 {% endtab %}
@@ -2850,7 +2858,7 @@ Let's walk through an example to claim your stake pools rewards.
 Rewards are accumulated in the `stake.addr` address.
 {% endhint %}
 
-First, find the **tip** of the blockchain to set the **ttl** parameter properly.
+First, find the **tip** of the blockchain to set the **invalid-hereafter** parameter properly.
 
 {% tabs %}
 {% tab title="block producer node" %}
@@ -2868,6 +2876,7 @@ Set the amount to send in lovelaces. ✨ Remember **1 ADA** = **1,000,000 lovela
 ```bash
 rewardBalance=$(cardano-cli query stake-address-info \
     --mainnet \
+    --allegra-era \
     --address $(cat stake.addr) | jq -r ".[0].rewardAccountBalance")
 echo rewardBalance: $rewardBalance
 ```
@@ -2892,6 +2901,7 @@ Find your payment.addr balance, utxos and build the withdrawal string.
 ```bash
 cardano-cli query utxo \
     --address $(cat payment.addr) \
+    --allegra-era \
     --mainnet > fullUtxo.out
 
 tail -n +3 fullUtxo.out | sort -k3 -nr > balance.out
@@ -2926,9 +2936,10 @@ Run the build-raw transaction command.
 cardano-cli transaction build-raw \
     ${tx_in} \
     --tx-out $(cat payment.addr)+0 \
-    --ttl $(( ${currentSlot} + 10000)) \
+    --invalid-hereafter $(( ${currentSlot} + 10000)) \
     --fee 0 \
     --withdrawal ${withdrawalString} \
+    --allegra-era \
     --out-file tx.tmp
 ```
 {% endtab %}
@@ -2971,9 +2982,10 @@ Build your transaction.
 cardano-cli transaction build-raw \
     ${tx_in} \
     --tx-out $(cat payment.addr)+${txOut} \
-    --ttl $(( ${currentSlot} + 10000)) \
+    --invalid-hereafter $(( ${currentSlot} + 10000)) \
     --fee ${fee} \
     --withdrawal ${withdrawalString} \
+    --allegra-era \
     --out-file tx.raw
 ```
 {% endtab %}
@@ -3017,6 +3029,7 @@ Check if the funds arrived.
 ```bash
 cardano-cli query utxo \
     --address ${destinationAddress} \
+    --allegra-era \
     --mainnet
 ```
 {% endtab %}
@@ -3118,7 +3131,7 @@ Query the ledger state.
 {% tabs %}
 {% tab title="block producer node" %}
 ```bash
-cardano-cli query ledger-state --mainnet --out-file ledger.json
+cardano-cli query ledger-state --mainnet --allegra-era --out-file ledger.json
 ```
 {% endtab %}
 {% endtabs %}
@@ -3162,36 +3175,6 @@ Checking leadership log for Epoch 222 [ d Param: 0.6 ]
 2020-10-01 00:12:22 ==> Leader for slot 131313, Cumulative epoch blocks: 2
 2020-10-01 00:19:55 ==> Leader for slot 161212, Cumulative epoch blocks: 3
 ```
-
-### 🎯 18.13 gLiveView - Node Status Monitoring
-
-{% hint style="info" %}
-gLiveView displays crucial node status information and works well with systemd services. As of cardano-node releases greater than 1.21.1, LiveView was removed and gLiveView is a ideal substitute. Credits to the [Guild Operators](https://cardano-community.github.io/guild-operators/#/Scripts/gliveview) for creating this tool.
-{% endhint %}
-
-Install Guild LiveView.
-
-```bash
-cd $NODE_HOME
-sudo apt install tcptraceroute -y
-curl -s -o gLiveView.sh https://raw.githubusercontent.com/cardano-community/guild-operators/master/scripts/cnode-helper-scripts/gLiveView.sh
-curl -s -o env https://raw.githubusercontent.com/cardano-community/guild-operators/master/scripts/cnode-helper-scripts/env
-chmod 755 gLiveView.sh
-```
-
-Review the **env** file and ensure your node configuration, such as node port, is correct. Edit the **env** file with your node's configuration, if required.
-
-Run Guild Liveview.
-
-```text
-./gLiveView.sh
-```
-
-Sample output of Guild Live View
-
-![Guild Live View](../../../.gitbook/assets/gliveview-core.png)
-
-For more information, refer to the [official Guild Live View docs.](https://cardano-community.github.io/guild-operators/#/Scripts/gliveview)
 
 ## 🌜 19. Retire your stake pool
 
@@ -3258,6 +3241,7 @@ Find your balance and **UTXOs**.
 ```bash
 cardano-cli query utxo \
     --address $(cat payment.addr) \
+    --allegra-era \
     --mainnet > fullUtxo.out
 
 tail -n +3 fullUtxo.out | sort -k3 -nr > balance.out
@@ -3284,19 +3268,16 @@ echo Number of UTXOs: ${txcnt}
 
 Run the build-raw transaction command.
 
-{% hint style="info" %}
-The **ttl** value must be greater than the current tip. In this example, we use current slot + 10000. 
-{% endhint %}
-
 {% tabs %}
 {% tab title="block producer node" %}
 ```bash
 cardano-cli transaction build-raw \
     ${tx_in} \
     --tx-out $(cat payment.addr)+${total_balance} \
-    --ttl $(( ${slotNo} + 10000)) \
+    --invalid-hereafter $(( ${slotNo} + 10000)) \
     --fee 0 \
     --certificate-file pool.dereg \
+    --allegra-era \
     --out-file tx.tmp
 ```
 {% endtab %}
@@ -3339,9 +3320,10 @@ Build the transaction.
 cardano-cli transaction build-raw \
     ${tx_in} \
     --tx-out $(cat payment.addr)+${txOut} \
-    --ttl $(( ${slotNo} + 10000)) \
+    --invalid-hereafter $(( ${slotNo} + 10000)) \
     --fee ${fee} \
     --certificate-file pool.dereg \
+    --allegra-era \
     --out-file tx.raw
 ```
 {% endtab %}
@@ -3389,7 +3371,7 @@ After the retirement epoch, you can verify that the pool was successfully retire
 {% tabs %}
 {% tab title="block producer node" %}
 ```bash
-cardano-cli query ledger-state --mainnet --out-file ledger-state.json
+cardano-cli query ledger-state --mainnet --allegra-era --out-file ledger-state.json
 jq -r '.esLState._delegationState._pstate._pParams."'"$(cat stakepoolid.txt)"'"  // empty' ledger-state.json
 ```
 {% endtab %}

@@ -379,12 +379,6 @@ With any new installation, ufw is disabled by default. Enable it with the follow
   * Nimbus uses port 9000 tcp/udp
   * Lodestar uses port 30607 tcp and port 9000 udp
 * Port 30303 tcp/udp eth1 node
-* Port 3000 tcp for Grafana
-* Port 9090 tcp for Prometheus export data \(optional\)
-
-{% hint style="warning" %}
-**Reminder**: Please do not expose the Prometheus endpoint to the public internet unless you understand your actions!
-{% endhint %}
 
 {% tabs %}
 {% tab title="Lighthouse" %}
@@ -394,7 +388,6 @@ sudo ufw allow 9000/tcp
 sudo ufw allow 9000/udp
 sudo ufw allow 30303/tcp
 sudo ufw allow 30303/udp
-sudo ufw allow 3000/tcp
 sudo ufw enable
 sudo ufw status numbered
 ```
@@ -407,7 +400,6 @@ sudo ufw allow 13000/tcp
 sudo ufw allow 12000/udp
 sudo ufw allow 30303/tcp
 sudo ufw allow 30303/udp
-sudo ufw allow 3000/tcp
 sudo ufw enable
 sudo ufw status numbered
 ```
@@ -420,7 +412,6 @@ sudo ufw allow 9000/tcp
 sudo ufw allow 9000/udp
 sudo ufw allow 30303/tcp
 sudo ufw allow 30303/udp
-sudo ufw allow 3000/tcp
 sudo ufw enable
 sudo ufw status numbered
 ```
@@ -433,7 +424,6 @@ sudo ufw allow 9000/tcp
 sudo ufw allow 9000/udp
 sudo ufw allow 30303/tcp
 sudo ufw allow 30303/udp
-sudo ufw allow 3000/tcp
 sudo ufw enable
 sudo ufw status numbered
 ```
@@ -446,12 +436,24 @@ sudo ufw allow 30607/tcp
 sudo ufw allow 9000/udp
 sudo ufw allow 30303/tcp
 sudo ufw allow 30303/udp
-sudo ufw allow 3000/tcp
 sudo ufw enable
 sudo ufw status numbered
 ```
 {% endtab %}
 {% endtabs %}
+
+{% hint style="danger" %}
+Do not expose Grafana \(port 3000\) and Prometheus endpoint \(port 9090\) to the public internet as this invites a new attack surface! A secure solution would be to access Grafana through a ssh tunnel with Wireguard.
+{% endhint %}
+
+Only open the following ports on local home staking setups behind a home router firewall or other network firewall.
+
+\*\*\*\*🔥 **It is dangerous to open these ports on a VPS/cloud node.**
+
+```bash
+sudo ufw allow 3000/tcp
+sudo ufw allow 9090/tcp
+```
 
 Confirm the settings are in effect.
 
@@ -519,6 +521,46 @@ sudo netstat -tulpn
 # tcp6       0      0 :::30303                :::*                    LISTEN      22117/geth
 # udp6       0      0 :::30303                :::*                    LISTEN      22117/geth
 ```
+
+## 👩🚀 **Use** system user accounts - Principle of Least Privilege \[Advanced Users / Optional\]
+
+{% hint style="info" %}
+**Recommended for Advanced Users Only**
+
+**Principle of Least Privilege**: Each eth2 process is assigned a _system user account_ and runs under the least amount of privileges required in order to function. This best practice protects against a scenario where a vulnerability or exploit discovered in a specific process might enable access other system processes.
+{% endhint %}
+
+```bash
+# creates system user account for eth1 service
+sudo adduser --system --no-create-home eth1
+
+# creates system user account for validator service
+sudo adduser --system --no-create-home validator
+
+# creates system user account for beacon-chain service
+sudo adduser --system --no-create-home beacon-chain
+
+# creates system user account for slasher
+sudo adduser --system --no-create-home slasher
+```
+
+{% hint style="danger" %}
+\*\*\*\*🔥 **Caveats For Advanced Users**
+
+If you decide to use **system user accounts**, remember to replace the **systemd unit files** with the corresponding users. 
+
+```bash
+# Example of beacon-chain.service unit file
+User            = beacon-chain
+```
+
+Furthermore, ensure the correct **file ownership** is assigned to your **system user account** where applicable.
+
+```bash
+# Example of prysm validator's password file
+sudo chown validator:validator -R $HOME/.eth2validators/validators-password.txt
+```
+{% endhint %}
 
 ## ✨ Additional validator node best practices
 

@@ -7,7 +7,7 @@ description: >-
 # Guide \| How to setup a validator on ETH2 testnet
 
 {% hint style="success" %}
-As of Dec 17 2020, this guide is updated for **testnet Pyrmont.** 😁
+As of Dec 24 2020, this guide is updated for **testnet Pyrmont.** 😁
 {% endhint %}
 
 #### ✨ For the mainnet guide, [please click here](guide-or-how-to-setup-a-validator-on-eth2-mainnet/).
@@ -79,6 +79,22 @@ or Ubuntu Desktop,
 If you need to install Metamask, refer to
 
 {% page-ref page="../../wallets/browser-wallets/metamask-ethereum.md" %}
+
+### 🧩 High Level Validator Node Overview
+
+{% hint style="info" %}
+At the end of this guide, you will build a machine that hosts three main components: a validator client, a beacon chain client and an eth1 node.
+
+**Validator client** - Responsible for producing new blocks and attestations in the beacon chain and shard chains.
+
+**Beacon chain client** - Responsible for managing the state of the beacon chain, validator shuffling, and more.
+
+**Eth1 node** - Supplies incoming validator deposits from the eth1 mainnet chain to the beacon chain client.
+
+Note: Teku and Nimbus combines both clients into one process.
+{% endhint %}
+
+![How eth2 fits together featuring Leslie the eth2 Rhino, the mascot named after American computer scientist Leslie Lamport](../../.gitbook/assets/eth2network.png)
 
 ## 🌱 1. Obtain testnet ETH
 
@@ -272,6 +288,7 @@ After           = network-online.target
 User            = $(whoami)
 ExecStart       = $(echo $HOME)/openethereum/openethereum --chain goerli
 Restart         = on-failure
+RestartSec      = 3
 
 [Install]
 WantedBy    = multi-user.target
@@ -340,6 +357,7 @@ After           = network-online.target
 User            = $(whoami)
 ExecStart       = /usr/bin/geth --http --goerli --metrics --pprof
 Restart         = on-failure
+RestartSec      = 3
 
 [Install]
 WantedBy    = multi-user.target
@@ -421,6 +439,7 @@ After           = network-online.target
 User            = $(whoami)
 ExecStart       = $(echo $HOME)/besu/bin/besu --metrics-enabled --rpc-http-enabled --network=goerli --data-path="$HOME/.besu_goerli"
 Restart         = on-failure
+RestartSec      = 3
 
 [Install]
 WantedBy    = multi-user.target
@@ -495,6 +514,7 @@ After           = network-online.target
 User            = $(whoami)
 ExecStart       = $(echo $HOME)/nethermind/Nethermind.Runner --config goerli --baseDbPath $HOME/.nethermind_goerli --Metrics.Enabled true --JsonRpc.Enabled true --Sync.DownloadBodiesInFastSync true --Sync.DownloadReceiptsInFastSync true --Sync.AncientBodiesBarrier 11052984 --Sync.AncientReceiptsBarrier 11052984
 Restart         = on-failure
+RestartSec      = 3
 
 [Install]
 WantedBy    = multi-user.target
@@ -1046,8 +1066,9 @@ After           = network-online.target
 Type            = simple
 User            = $(whoami)
 WorkingDirectory= /var/lib/nimbus
-ExecStart       = /usr/bin/nimbus_beacon_node --network=pyrmont --data-dir=/var/lib/nimbus --nat=extip:\${ClientIP} --web3-url=ws://127.0.0.1:8546 --metrics --metrics-port=8008 --rpc --rpc-port=9091 --validators-dir=/var/lib/nimbus/validators --secrets-dir=/var/lib/nimbus/secrets --log-file=/var/lib/nimbus/beacon.log
+ExecStart       = /usr/bin/nimbus_beacon_node --network=pyrmont --data-dir=/var/lib/nimbus --web3-url=ws://127.0.0.1:8546 --metrics --metrics-port=8008 --rpc --rpc-port=9091 --validators-dir=/var/lib/nimbus/validators --secrets-dir=/var/lib/nimbus/secrets --log-file=/var/lib/nimbus/beacon.log
 Restart         = on-failure
+
 [Install]
 WantedBy    = multi-user.target
 EOF
@@ -1956,14 +1977,6 @@ journalctl --unit=validator --since='2020-12-01 00:00:00' --until='2020-12-02 12
 {% endtab %}
 {% endtabs %}
 
-{% hint style="info" %}
-**Validator client** - Responsible for producing new blocks and attestations in the beacon chain and shard chains.
-
-**Beacon chain client** - Responsible for managing the state of the beacon chain, validator shuffling, and more.
-
-Remember, Teku and Nimbus combines both clients into one process.
-{% endhint %}
-
 ## 🕒5. Time Synchronization
 
 {% hint style="info" %}
@@ -2239,11 +2252,13 @@ sudo systemctl status grafana-server.service prometheus.service prometheus-node-
 8. Click **Save & Test**
 9. **Download and save** your ETH2 Client's json file. \[ [Lighthouse BC ](https://raw.githubusercontent.com/sigp/lighthouse-metrics/master/dashboards/Summary.json)\| [Lighthouse VC](https://raw.githubusercontent.com/sigp/lighthouse-metrics/master/dashboards/ValidatorClient.json) \| [Teku](https://grafana.com/api/dashboards/13457/revisions/2/download)[ ](https://grafana.com/api/dashboards/12522/revisions/2/download)\| [Nimbus ](https://raw.githubusercontent.com/status-im/nimbus-eth2/master/grafana/beacon_nodes_Grafana_dashboard.json)\| [Prysm ](https://raw.githubusercontent.com/GuillaumeMiralles/prysm-grafana-dashboard/master/less_10_validators.json)\| [Prysm &gt; 10 Validators](https://raw.githubusercontent.com/GuillaumeMiralles/prysm-grafana-dashboard/master/more_10_validators.json) \| Lodestar \]
 10. **Download and save** your ETH1 Client's json file \[ [Geth](https://gist.githubusercontent.com/karalabe/e7ca79abdec54755ceae09c08bd090cd/raw/3a400ab90f9402f2233280afd086cb9d6aac2111/dashboard.json) \| [Besu ](https://grafana.com/api/dashboards/10273/revisions/5/download)\| [Nethermind ](https://raw.githubusercontent.com/NethermindEth/metrics-infrastructure/master/grafana/dashboards/nethermind.json)\| OpenEthereum \]
-11. Click **Create +** icon &gt; **Import**
-12. Add the ETH2 client's dashboard via **Upload JSON file**
-13. If needed, select Prometheus as **Data Source**.
-14. Click the **Import** button.
-15. Repeat steps 11-14 for the ETH1 client dashboard.
+11. **Download and save** a [node-exporter dashboard](https://grafana.com/api/dashboards/11074/revisions/9/download) for general system monitoring
+12. Click **Create +** icon &gt; **Import**
+13. Add the ETH2 client's dashboard via **Upload JSON file**
+14. If needed, select Prometheus as **Data Source**.
+15. Click the **Import** button.
+16. Repeat steps 12-15 for the ETH1 client dashboard.
+17. Repeat steps 12-15 for the node-exporter dashboard.
 
 {% hint style="info" %}
 \*\*\*\*🔥 **Troubleshooting common Grafana issues**: 
@@ -2311,6 +2326,22 @@ Credits: [https://github.com/NethermindEth/metrics-infrastructure](https://githu
 
 {% tab title="OpenEthereum" %}
 Work in progress
+{% endtab %}
+{% endtabs %}
+
+#### Example of Node-Exporter Dashboard
+
+{% tabs %}
+{% tab title="Node-Exporter Dashboard by starsliao" %}
+**General system monitoring**
+
+Includes: CPU, memory, disk IO, network, temperature and other monitoring metrics。
+
+![](../../.gitbook/assets/node-exporter.png)
+
+![](../../.gitbook/assets/node-exporter2.png)
+
+Credits: [starsliao](https://grafana.com/grafana/dashboards/11074)
 {% endtab %}
 {% endtabs %}
 
@@ -3085,9 +3116,9 @@ On the separate machine hosting the beacon-chain, update the beacon-chain unit f
 ```bash
 # edit beacon-chain unit file
 nano /etc/systemd/system/beacon-chain.service
-# add the --eth1-endpoint parameter
+# add the --eth1-endpoints parameter
 # example
-# --eth1-endpoint=http://192.168.10.22
+# --eth1-endpoints=http://192.168.10.22
 ```
 {% endtab %}
 
@@ -3563,7 +3594,7 @@ sudo systemctl daemon-reload
 sudo systemctl restart beacon-chain
 ```
 
-#### 👨💻 Strategy \#2: Increase eth1 uptime by using a failover eth1 node
+#### 👨💻 Strategy \#2: Eth1 node redundancy
 
 {% hint style="info" %}
 Especially useful during eth1 upgrades, when your primary node is temporarily unavailable.
@@ -3604,6 +3635,48 @@ Reload the updated unit file and restart the beacon-chain process to complete th
 ```bash
 sudo systemctl daemon-reload
 sudo systemctl restart beacon-chain
+```
+
+#### ⚙ Strategy \#3: Perform updates or reboots during the longest attestation gap
+
+Learn how to at the following quick guide.
+
+{% page-ref page="guide-or-how-to-setup-a-validator-on-eth2-mainnet/how-to-find-longest-attestation-slot-gap.md" %}
+
+#### ⚙ Strategy \#4: Beacon node redundancy
+
+{% hint style="info" %}
+Allows the VC \(validator client\) to connect to multiple BN \(beacon nodes\). This means your validator client can use multiple BNs. Whenever a BN fails to respond, the VC will try again with the next BN.
+
+Must install a BN of the same eth2 client on another server.
+
+Currently only works for Lighthouse.
+{% endhint %}
+
+Edit your `validator.service` unit file.
+
+```bash
+sudo nano /etc/systemd/system/validator.service
+```
+
+Add the following flag on the `ExecStart` line. 
+
+{% tabs %}
+{% tab title="Lighthouse" %}
+```bash
+--beacon-nodes <BEACON-NODE ENDPOINTS>
+# Example, separate endpoints with commas.
+# lighthouse vc --beacon-nodes http://localhost:5052,http://192.168.1.100:5052
+# If localhost is not responsive (perhaps during an update), the VC will attempt to use 192.168.1.100 instead.
+```
+{% endtab %}
+{% endtabs %}
+
+Reload the updated unit file and restart the validator process to complete this change.
+
+```bash
+sudo systemctl daemon-reload
+sudo systemctl restart validator
 ```
 
 ## 🌇 9. Join the community on Discord and Reddit
